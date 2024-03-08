@@ -15,6 +15,7 @@ class Heuristic_Info():
         self.my_robot_has_package = self.my_robot.package
         self.unpicked_packages = [package for package in env.packages if package.on_board==True]
         self.charge_stations = env.charge_stations
+        self.num_steps_left = env.num_steps
 
     def robot_has_package(self):
         return self.my_robot_has_package is not None
@@ -58,42 +59,75 @@ class Heuristic_Info():
             return None
         return self.dist_R_Pi(package_index)+self.dist_Pi_Di(package_index) <= self.my_robot.battery
     
+    def there_is_a_worth_it_package(self):
+        for i in range(len(self.unpicked_packages)):
+            if self.is_worth_it_p(i):
+                return True
+        return False
+    
     def is_worth_it_x(self):
         # True: Can get to package destination before battery dying
         if self.my_robot_has_package is None:
             return None
-        return self.dist_R_D() <= self.my_robot.battery
-    
-    def is_on_package_destination(self):
-        if self.my_robot_has_package is None:
-            return None
-        return self.my_robot_has_package.destination == self.my_robot.position
+        return self.dist_R_X() <= self.my_robot.battery
         
-
+    def is_on_charging_station(self):
+        return self.my_robot.position == self.charge_stations[0].position or self.my_robot.position == self.charge_stations[1].position
+    
+    def should_charge(self):
+        return self.my_robot.battery + self.my_robot.credit < self.num_steps_left/2
+        
 
 def smart_heuristic(env: WarehouseEnv, robot_id: int):
     info = Heuristic_Info(env, robot_id)
     max_value = float('-inf')
 
+    # Robot doesn't have a package
     if not info.robot_has_package():
-        for i in range(len(info.unpicked_packages)):
-                if info.is_worth_it_p(i):
-                    new_value = -info.dist_R_Pi(i) + info.my_robot.credit*10
+        # If there is a worth it package (can get to it and destination on time) then go to it
+        if info.there_is_a_worth_it_package():
+            for i in range(len(info.unpicked_packages)):
+                    new_value = -info.dist_R_Pi(i) + info.dist_ROther_Pi(i)*0.75 + (info.my_robot.credit+info.my_robot.battery)*100
                     max_value = max(max_value, new_value)
-                else:
-                    for t in range(len(env.charge_stations)):
-                        new_value = -info.dist_R_Ct(t) + info.my_robot.credit*10
-                        max_value = max(max_value, new_value)
-
-    else:
-        if info.is_worth_it_x():
-            new_value = 10 - info.dist_R_X() + info.my_robot.credit*10
-            max_value = max(max_value, new_value)
-        else:
+                    # print(f"(1) child {info.robot_position()} : {new_value} (to package)")
+        
+        # Else if, it is worthwhile to lose all points in order to get battery do that
+        elif info.should_charge():
             for t in range(len(env.charge_stations)):
-                new_value = 10 - info.dist_R_Ct(t) + info.my_robot.credit*10
+                new_value = -info.dist_R_Ct(t) + (info.my_robot.credit+info.my_robot.battery)*100
                 max_value = max(max_value, new_value)
+                # print(f"(2) child {info.robot_position()} : {new_value} (to charging station)")
 
+        # Else, steal package from other robot to kill time
+        else:
+            for i in range(len(info.unpicked_packages)):
+                new_value = -info.dist_R_Pi(i) - info.dist_ROther_Pi(i) + (info.my_robot.credit+info.my_robot.battery)*100
+                max_value = max(max_value, new_value)
+                # print(f"(3) child {info.robot_position()} : {new_value} (kill time -> steal package)")
+
+
+    # Robot has a package
+    else:
+        # If can get to package destination on time, go to it
+        if info.is_worth_it_x():
+            new_value = 100 - info.dist_R_X() + (info.my_robot.credit+info.my_robot.battery)*100 
+            max_value = max(max_value, new_value)
+            # print(f"(4) child {info.robot_position()} : {new_value} (to package destination)")
+        # Else if, it is worth it to charge before going to destination, do that
+        elif info.should_charge():
+            for t in range(len(env.charge_stations)):
+                new_value = 100 - info.dist_R_Ct(t) + (info.my_robot.credit+info.my_robot.battery)*100
+                max_value = max(max_value, new_value)
+                # print(f"(5) child {info.robot_position()} : {new_value} (to charging station)")
+        # Else, steal package from other robot (block other robot path) to kill time
+        else:
+            for i in range(len(info.unpicked_packages)):
+                    new_value = -info.dist_R_Pi(i) - info.dist_ROther_Pi(i) + (info.my_robot.credit+info.my_robot.battery)*100
+                    max_value = max(max_value, new_value)
+                    # print(f"(6) child {info.robot_position()} : {new_value} (kill time -> steal package)")
+
+
+    # print(f"-> child {info.robot_position()} : {max_value}")
     return max_value
 
 class AgentGreedyImproved(AgentGreedy):
