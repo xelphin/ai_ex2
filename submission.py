@@ -121,7 +121,7 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
         # Else, steal package from other robot to kill time
         else:
             for i in range(len(info.unpicked_packages)):
-                new_value = -info.dist_R_Pi(i) - info.dist_ROther_Pi(i)+ (info.my_robot.credit)*100
+                new_value = -info.dist_R_Pi(i) - info.dist_ROther_Pi(i)+ (info.my_robot.credit+info.my_robot.battery)*100
                 max_value = max(max_value, new_value)
                 # print(f"(3) child {info.robot_position()} : {new_value} (kill time -> steal package) num steps left {env.num_steps}")
 
@@ -142,7 +142,7 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
         # Else, steal package from other robot (block other robot path) to kill time
         else:
             for i in range(len(info.unpicked_packages)):
-                new_value = -info.dist_R_Pi(i) - info.dist_ROther_Pi(i)+ (info.my_robot.credit)*100
+                new_value = -info.dist_R_Pi(i) - info.dist_ROther_Pi(i)+ (info.my_robot.credit+info.my_robot.battery)*100
                 max_value = max(max_value, new_value)
             # print(f"(6) child {info.robot_position()} : {new_value} (kill time -> steal package) num steps left {env.num_steps}")
 
