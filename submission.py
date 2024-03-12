@@ -153,16 +153,91 @@ class AgentGreedyImproved(AgentGreedy):
         return smart_heuristic(env, robot_id)
 
 
+def smart_heuristic_for_minmax(env: WarehouseEnv, robot_id: int):
+    my_robot = env.get_robot(robot_id)
+    other_robot = env.get_robot(not robot_id)
+
+    # Case game end
+    if my_robot.battery == 0 and other_robot.battery == 0:
+        if my_robot.credit > other_robot.credit:
+            return float('inf')
+        elif my_robot.credit < other_robot.credit:
+            return float('-inf')
+        else:
+            return 0
+        
+    # Case game continue
+    # return smart_heuristic(env, robot_id)-(other_robot.battery + other_robot.credit)*100
+    return smart_heuristic(env, robot_id)
+
+
 class AgentMinimax(Agent):
     # TODO: section b : 1
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
         raise NotImplementedError()
 
 
+def helper_d_str(depth):
+    return "-"*depth
+
+def helper_dfs_limit_pruned(env: WarehouseEnv, agent_id, depth_limit, heuristic, curr_depth, is_robot1 , alpha, beta):
+
+    if depth_limit == curr_depth:
+        return (heuristic(env, agent_id), None) # We want to do heurstic from pov of Robot0 (main_player)
+
+    # Get child states
+    operators = env.get_legal_operators(int(is_robot1))
+    children = [env.clone() for _ in operators]
+    for child, op in zip(children, operators):
+        child.apply_operator(int(is_robot1), op)
+
+    # # Optimal ordering 
+    # sorted_children_op = sorted(children_op, key=lambda x: heuristic(x, agent_id)) 
+    # if not is_main_player:
+    #     sorted_children_op.reverse()
+
+    # Apply DFS-L
+    # TODO: Do i need new_alpha/new_beta or do i recursively use the same alpha/beta everywhere
+    new_alpha = float('-inf')
+    new_beta = float('inf')
+    child_values = []
+
+    for child, op in zip(children, operators):
+        print(f"{helper_d_str(curr_depth)} Robot {int(is_robot1)}: {env.get_robot(int(is_robot1)).position} {op} -> {child.get_robot(int(is_robot1)).position}")
+        (child_value, ret_op) = helper_dfs_limit_pruned(child, agent_id, depth_limit, heuristic, curr_depth+1, not is_robot1, new_alpha, new_beta)
+        child_values += [(child_value, op)]
+        print(f"{helper_d_str(curr_depth)} Robot {int(is_robot1)}: {env.get_robot(int(is_robot1)).position} {op} -> {child.get_robot(int(is_robot1)).position} RETURNED {child_value}")
+
+        # Pruning
+        if is_robot1:
+            if child_value <= alpha:
+                print(f"{helper_d_str(curr_depth)} Pruning it ({op}) alpha is {alpha}")
+                return (child_value, op)
+        else:
+            if child_value >= beta:
+                print(f"{helper_d_str(curr_depth)} Pruning it ({op}) beta is {beta}")
+                return (child_value, op)
+            
+        # Update alpha, beta
+        if child_value > new_alpha:
+            new_alpha = child_value
+        if child_value < new_beta:
+            new_beta = child_value
+
+    # Return best value for player (min/max)
+    if is_robot1:
+        return min(child_values, key=lambda x: x[0])
+    else:
+        return max(child_values, key=lambda x: x[0])
+
+
 class AgentAlphaBeta(Agent):
     # TODO: section c : 1
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
-        raise NotImplementedError()
+        alpha = float('-inf')
+        beta = float('inf')
+        (best_child_value, best_op) = helper_dfs_limit_pruned(env, agent_id, 8, smart_heuristic_for_minmax, 0, False, alpha, beta)
+        return best_op
 
 
 class AgentExpectimax(Agent):
