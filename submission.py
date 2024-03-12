@@ -107,21 +107,21 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
         # If there is a worth it package (can get to it and destination on time) then go to it
         if len(worth_it_packages) != 0:
             for i in range(len(info.unpicked_packages)):
-                new_value = -info.dist_R_Pi(i) + info.dist_ROther_Pi(i)*0.75 + (info.my_robot.credit+info.my_robot.battery)*100
+                new_value = -info.dist_R_Pi(i) + info.dist_ROther_Pi(i)*0.75 + (info.my_robot.credit+info.my_robot.battery*0.8)*1000
                 max_value = max(max_value, new_value)
             # print(f"(1) child {info.robot_position()} : {new_value} (to package) num steps left {env.num_steps}")        
         
         # Else if, it is worthwhile to lose all points in order to get battery do that
         elif info.should_charge():
             for t in range(len(env.charge_stations)):
-                new_value = -info.dist_R_Ct(t) + (info.my_robot.credit+info.my_robot.battery)*100
+                new_value = -info.dist_R_Ct(t) + (info.my_robot.credit+info.my_robot.battery*0.8)*1000
                 max_value = max(max_value, new_value)
                 # print(f"(2) child {info.robot_position()} : {new_value} (to charging station) num steps left {env.num_steps}")
 
         # Else, steal package from other robot to kill time
         else:
             for i in range(len(info.unpicked_packages)):
-                new_value = -info.dist_R_Pi(i) - info.dist_ROther_Pi(i)+ (info.my_robot.credit+info.my_robot.battery)*100
+                new_value = -info.dist_R_Pi(i) - info.dist_ROther_Pi(i)+ (info.my_robot.credit+info.my_robot.battery*0.8)*1000
                 max_value = max(max_value, new_value)
                 # print(f"(3) child {info.robot_position()} : {new_value} (kill time -> steal package) num steps left {env.num_steps}")
 
@@ -130,19 +130,19 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
     else:
         # If can get to package destination on time, go to it
         if info.is_worth_it_x():
-            new_value = 100 - info.dist_R_X() + (info.my_robot.credit+info.my_robot.battery)*100
+            new_value = 100 - info.dist_R_X() + (info.my_robot.credit+info.my_robot.battery*0.8)*1000
             max_value = max(max_value, new_value)
             # print(f"(4) child {info.robot_position()} : {new_value} (to package destination) num steps left {env.num_steps}")
         # Else if, it is worth it to charge before going to destination, do that
         elif info.should_charge():
             for t in range(len(env.charge_stations)):
-                new_value = 100 - info.dist_R_Ct(t) + (info.my_robot.credit+info.my_robot.battery)*100
+                new_value = 100 - info.dist_R_Ct(t) + (info.my_robot.credit+info.my_robot.battery*0.8)*1000
                 max_value = max(max_value, new_value)
             # print(f"(5) child {info.robot_position()} : {new_value} (to charging station) num steps left {env.num_steps}")
         # Else, steal package from other robot (block other robot path) to kill time
         else:
             for i in range(len(info.unpicked_packages)):
-                new_value = -info.dist_R_Pi(i) - info.dist_ROther_Pi(i)+ (info.my_robot.credit+info.my_robot.battery)*100
+                new_value = -info.dist_R_Pi(i) - info.dist_ROther_Pi(i)+ (info.my_robot.credit+info.my_robot.battery*0.8)*1000
                 max_value = max(max_value, new_value)
             # print(f"(6) child {info.robot_position()} : {new_value} (kill time -> steal package) num steps left {env.num_steps}")
 
@@ -209,6 +209,7 @@ def helper_dfs_limit_pruned(env: WarehouseEnv, agent_id, depth_limit, heuristic,
         print(f"{helper_d_str(curr_depth)} Robot {int(is_robot1)}: {env.get_robot(int(is_robot1)).position} {op} -> {child.get_robot(int(is_robot1)).position} RETURNED {child_value}")
 
         # Pruning
+        ########################
         if is_robot1:
             if child_value <= alpha:
                 print(f"{helper_d_str(curr_depth)} Pruning it ({op}) alpha is {alpha}")
@@ -223,6 +224,8 @@ def helper_dfs_limit_pruned(env: WarehouseEnv, agent_id, depth_limit, heuristic,
             new_alpha = child_value
         if child_value < new_beta:
             new_beta = child_value
+        ########################
+        # Note, without above i think it's normal minmax
 
     # Return best value for player (min/max)
     if is_robot1:
@@ -236,7 +239,7 @@ class AgentAlphaBeta(Agent):
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
         alpha = float('-inf')
         beta = float('inf')
-        (best_child_value, best_op) = helper_dfs_limit_pruned(env, agent_id, 8, smart_heuristic_for_minmax, 0, False, alpha, beta)
+        (best_child_value, best_op) = helper_dfs_limit_pruned(env, agent_id, 4, smart_heuristic_for_minmax, 0, False, alpha, beta)
         return best_op
 
 
