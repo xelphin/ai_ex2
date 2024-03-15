@@ -19,9 +19,14 @@ class Heuristic_Info():
         self.unpicked_packages = [package for package in env.packages if package.on_board==True]
         self.charge_stations = env.charge_stations
         self.num_steps_left = env.num_steps/2
+        self.not_my_robot_package = self.other_robot.package
 
     def robot_has_package(self):
         return self.my_robot_has_package is not None
+        
+    def other_robot_has_package(self):
+        return (self.not_my_robot_package is not None)
+
     
     def robot_position(self):
         return self.my_robot.position
@@ -92,6 +97,44 @@ class Heuristic_Info():
     def win_while_ahead(self):
         # If other robot is dead and we have more points than them, return true
         return self.my_robot.credit > self.other_robot.credit and self.other_robot.battery == 0
+    
+    def has_lost(self):
+        return self.my_robot.credit < self.other_robot.credit and self.my_robot.battery == 0
+    
+    def closeness_to_package(self):
+        if self.robot_has_package():
+            return self.dist_R_X()
+        else:
+            min_p_dist = float('inf')
+            for i in range(len(self.unpicked_packages)):
+                min_p_dist = min(min_p_dist, self.dist_R_Pi(i))
+            if min_p_dist == float('inf'):
+                return float('-inf')
+            return min_p_dist
+        
+    def other_closeness_to_package(self):
+        if self.other_robot_has_package():
+            return self.dist_ROther_X()
+        else:
+            min_p_dist = float('inf')
+            for i in range(len(self.unpicked_packages)):
+                min_p_dist = min(min_p_dist, self.dist_ROther_Pi(i))
+            if min_p_dist == float('inf'):
+                return float('-inf')
+            return min_p_dist
+    
+    def dist_R_X(self):
+        # Distance between my_robot and destination of package it picked up
+        if self.my_robot_has_package is None:
+            return None
+        return manhattan_distance(self.my_robot.position, self.my_robot_has_package.destination)
+        
+    def dist_ROther_X(self):
+        # Distance between my_robot and destination of package it picked up
+        if self.not_my_robot_package is None:
+            return None
+        return manhattan_distance(self.other_robot.position, self.not_my_robot_package.destination) 
+    
         
 
 def smart_heuristic(env: WarehouseEnv, robot_id: int):
@@ -185,7 +228,7 @@ def smart_heuristic2(env: WarehouseEnv, robot_id: int):
 
 class AgentGreedyImproved(AgentGreedy):
     def heuristic(self, env: WarehouseEnv, robot_id: int):
-        return smart_heuristic(env, robot_id)
+        return smart_heuristic2(env, robot_id)
 
 
 class AgentMinimax(Agent):
