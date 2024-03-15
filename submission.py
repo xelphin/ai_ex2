@@ -18,7 +18,7 @@ class Heuristic_Info():
         self.my_robot_has_package = self.my_robot.package
         self.unpicked_packages = [package for package in env.packages if package.on_board==True]
         self.charge_stations = env.charge_stations
-        self.num_steps_left = env.num_steps/2
+        self.num_steps_left = env.num_steps
         self.not_my_robot_package = self.other_robot.package
 
     def robot_has_package(self):
@@ -96,9 +96,14 @@ class Heuristic_Info():
     
     def win_while_ahead(self):
         # If other robot is dead and we have more points than them, return true
+        if self.env.num_steps==0 and self.my_robot.credit > self.other_robot.credit:
+            return True
+
         return self.my_robot.credit > self.other_robot.credit and self.other_robot.battery == 0
     
     def has_lost(self):
+        if self.env.num_steps==0 and self.my_robot.credit < self.other_robot.credit:
+            return True
         return self.my_robot.credit < self.other_robot.credit and self.my_robot.battery == 0
     
     def closeness_to_package(self):
@@ -228,13 +233,13 @@ def smart_heuristic2(env: WarehouseEnv, robot_id: int):
 
 class AgentGreedyImproved(AgentGreedy):
     def heuristic(self, env: WarehouseEnv, robot_id: int):
-        return smart_heuristic2(env, robot_id)
+        return smart_heuristic(env, robot_id)
 
 
 class AgentMinimax(Agent):
     # TODO: section b : 1
     def heuristic(self, env: WarehouseEnv, robot_id: int):
-        return smart_heuristic2(env, robot_id)
+        return smart_heuristic(env, robot_id)
     
     def helper(self, env: WarehouseEnv, agent_id, depth, current_id):
 
@@ -243,7 +248,7 @@ class AgentMinimax(Agent):
         operators = env.get_legal_operators(current_id)
         children = [env.clone() for _ in operators]
         options = []
-
+        
         for child, op in zip(children, operators):
             child.apply_operator(current_id, op)
             child_val = self.helper(child, agent_id, depth-1, not current_id)
@@ -261,14 +266,24 @@ class AgentMinimax(Agent):
 
         time_started = 0
         depth=3
+        forced_parking = False
+
         (best_value, best_op) = (None, None)
+
         while True:
+            if (env.num_steps < depth):
+                forced_parking = True
+                break
             iteration_started = time.time()
             (best_value, best_op)=self.helper(env, agent_id, depth, agent_id)
             if (25*(time.time()-iteration_started)+time_started>=time_limit): # avragely the branching factor is 5 so the time to perform next depth shold be 25 times larger
                 break
             time_started+=(time.time()-iteration_started)
             depth+=2
+            
+        
+        if forced_parking:
+            return 'park'
         
         return best_op
 
