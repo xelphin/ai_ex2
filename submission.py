@@ -1,6 +1,8 @@
 from Agent import Agent, AgentGreedy
 from WarehouseEnv import WarehouseEnv, manhattan_distance
 import random
+import time
+
 
 
 # TODO: section a : 3
@@ -116,8 +118,43 @@ class AgentGreedyImproved(AgentGreedy):
 
 class AgentMinimax(Agent):
     # TODO: section b : 1
+    def heuristic(self, env: WarehouseEnv, robot_id: int):
+        return smart_heuristic(env, robot_id)
+    
+    def helper(self, env: WarehouseEnv, agent_id, depth):
+
+        if (depth==0):
+            return (self.heuristic(env,agent_id), None)
+        operators = env.get_legal_operators(agent_id)
+        children = [env.clone() for _ in operators]
+        options = []
+
+        for child, op in zip(children, operators):
+            child.apply_operator(agent_id, op)
+            child_val = self.helper(child, not agent_id, depth-1)
+            options.append((child_val, op))
+        
+        if agent_id:
+            return min(options, key=lambda x: x[0])
+        else:
+            return max(options, key=lambda x: x[0])
+        
+
+        
+
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
-        raise NotImplementedError()
+
+        time_started = 0
+        depth=3
+        (best_value, best_op) = (None, None)
+        while True:
+            iteration_started = time.time()
+            (best_value, best_op)=self.helper(env, agent_id, depth)
+            if (25*(time.time()-iteration_started)+time_started>=time_limit): # avragely the branching factor is 5 so the time to perform next depth shold be 25 times larger
+                break
+            time_started+=(time.time()-iteration_started)
+            depth+=2
+        return best_op
 
 
 class AgentAlphaBeta(Agent):
