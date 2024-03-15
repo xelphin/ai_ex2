@@ -121,17 +121,17 @@ class AgentMinimax(Agent):
     def heuristic(self, env: WarehouseEnv, robot_id: int):
         return smart_heuristic(env, robot_id)
     
-    def helper(self, env: WarehouseEnv, agent_id, depth):
+    def helper(self, env: WarehouseEnv, agent_id, depth, current_id):
 
         if (depth==0):
             return (self.heuristic(env,agent_id), None)
-        operators = env.get_legal_operators(agent_id)
+        operators = env.get_legal_operators(current_id)
         children = [env.clone() for _ in operators]
         options = []
 
         for child, op in zip(children, operators):
-            child.apply_operator(agent_id, op)
-            child_val = self.helper(child, not agent_id, depth-1)
+            child.apply_operator(current_id, op)
+            child_val = self.helper(child, agent_id, depth-1, not current_id)
             options.append((child_val, op))
         
         if agent_id:
@@ -149,11 +149,12 @@ class AgentMinimax(Agent):
         (best_value, best_op) = (None, None)
         while True:
             iteration_started = time.time()
-            (best_value, best_op)=self.helper(env, agent_id, depth)
+            (best_value, best_op)=self.helper(env, agent_id, depth, agent_id)
             if (25*(time.time()-iteration_started)+time_started>=time_limit): # avragely the branching factor is 5 so the time to perform next depth shold be 25 times larger
                 break
             time_started+=(time.time()-iteration_started)
             depth+=2
+        print("depthhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh is "+str(depth))
         return best_op
 
 
