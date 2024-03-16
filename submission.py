@@ -216,8 +216,8 @@ class AgentMinimax(Agent):
         if env.num_steps < 2: # last move should be greedy
             return self.greedy(agent_id)
 
-
-        (best_value, self.best_op) = (None, 'park')
+        operators = env.get_legal_operators(agent_id)
+        (best_value, self.best_op) = (None, operators[0])
 
         try:
             while True:
