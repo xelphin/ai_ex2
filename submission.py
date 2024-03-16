@@ -193,32 +193,23 @@ class AgentMinimax(Agent):
         self.best_op= best_op22
 
 
-
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
 
         time_started = time.time()
         time_limit=0.9*time_limit
         self.env = env
-
         max_depth=2
-        forced_parking = False
+        if env.num_steps < 2: # last move should be greedy
+            self.heuristic(env, agent_id)
+
 
         (best_value, self.best_op) = (None, 'park')
 
         try:
             while True:
                 if (env.num_steps < max_depth):
-                    forced_parking = True
                     break
-                
-                #thread = Process(target=self.helper_aux, args=(agent_id, depth, agent_id, max_depth,))
-                #thread.start()
-                #thread.join(timeout=time_limit)
-                #helper_thread = threading.Thread(target=self.helper_aux, args=(agent_id, max_depth, time_limit, time_started))
-                #helper_thread.start()
-                #helper_thread.join(timeout=time_limit)
                 self.helper_aux(agent_id, max_depth, time_limit, time_started)
-
                 max_depth+=2
                 if time_limit<=time.time()-time_started:
                     break
@@ -226,14 +217,9 @@ class AgentMinimax(Agent):
         except TimeoutException as e:
             pass        
         # not sure why is it None
-        if forced_parking or self.best_op==None:
-            operators = env.get_legal_operators(agent_id)
-            if 'park' in operators:
-                return 'park'
-            else:
-                for i in operators:
-                    if i.startswith('move'):
-                        return i
+        if self.best_op==None: # sholdnt enter here
+            self.heuristic(env, agent_id)
+
      
         return self.best_op
 
