@@ -213,7 +213,7 @@ class AgentMinimax(Agent):
         time_limit=0.9*time_limit
         self.env = env
         max_depth=2
-        if env.num_steps < 2: # last move should be greedy
+        if env.num_steps/2 < 2: # last move should be greedy
             return self.greedy(agent_id)
 
         operators = env.get_legal_operators(agent_id)
@@ -221,7 +221,7 @@ class AgentMinimax(Agent):
 
         try:
             while True:
-                if (env.num_steps < max_depth):
+                if (env.num_steps/2 < max_depth):
                     break
                 self.helper_aux(agent_id, max_depth, time_limit, time_started)
                 max_depth+=2
