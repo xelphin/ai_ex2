@@ -179,12 +179,13 @@ class AgentMinimax(Agent):
 
         if (time.time()-time_started>=time_limit):
             raise TimeoutException
-
+        
+        operators = env.get_legal_operators(current_id)
         if (self.heuristic(env,agent_id) ==float('-inf') or self.heuristic(env,agent_id) ==float('inf')):
             return (self.heuristic(env,agent_id), operators[0])
         if (depth==max_depth):
             return (self.heuristic(env,agent_id), None)
-        operators = env.get_legal_operators(current_id)
+        
         
         children = [env.clone() for _ in operators]
         options = []
