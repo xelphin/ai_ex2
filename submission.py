@@ -257,7 +257,7 @@ class AgentMinimax(Agent):
     
     def helper(self, env: WarehouseEnv, agent_id, depth, current_id, max_depth,time_limit, time_started):
 
-        if (time.time()-time_started>time_limit):
+        if (time.time()-time_started>=time_limit):
             raise TimeoutException
 
         if (self.heuristic(env,agent_id) ==float('-inf') or self.heuristic(env,agent_id) ==float('inf')):
@@ -312,12 +312,12 @@ class AgentMinimax(Agent):
                 helper_thread.start()
                 helper_thread.join(timeout=time_limit)
                 max_depth+=2
-                if time_limit<=time_started:
+                if time_limit<=time.time()-time_started:
                     break
 
-        except TimeoutException:
+        except TimeoutException as e:
             pass
-                
+        print(max_depth)        
         # not sure why is it None
         if forced_parking or self.best_op==None:
             operators = env.get_legal_operators(agent_id)
