@@ -2,10 +2,16 @@ from Agent import Agent, AgentGreedy
 from WarehouseEnv import WarehouseEnv, manhattan_distance
 import random
 import time
+import threading
 
-
+#import signal
+from multiprocessing import Process
 
 # TODO: section a : 3
+
+
+class TimeoutException(Exception):
+    pass
 
 
 class Heuristic_Info():
@@ -218,13 +224,13 @@ def smart_heuristic2(env: WarehouseEnv, robot_id: int):
     # print(f"For {my_robot.position}:")
     
     h_val += 100*(my_robot.credit-other_robot.credit)
-    # print(f"-- [credits +{100*(my_robot.credit-other_robot.credit)}]")
+    #print(f"-- [credits +{100*(my_robot.credit-other_robot.credit)}]")
     h_val += 50*(my_robot.battery-other_robot.battery)
-    # print(f"-- [battery +{50*(my_robot.battery-other_robot.battery)}]")
-    h_val += 100*(int(info.robot_has_package()) - int(info.other_robot_has_package())) # -1 <= val <= 1
-    # print(f"-- [has package +{100*(int(info.robot_has_package()) - int(info.other_robot_has_package()))}]")
+    #print(f"-- [battery +{50*(my_robot.battery-other_robot.battery)}]")
+    h_val += 25*(int(info.robot_has_package()) - int(info.other_robot_has_package())) # -1 <= val <= 1
+    #print(f"-- [has package +{100*(int(info.robot_has_package()) - int(info.other_robot_has_package()))}]")
     h_val += -info.closeness_to_package() + info.other_closeness_to_package()
-    # print(f"-- [closeness us: -{info.closeness_to_package()} other: +{info.other_closeness_to_package()}")
+    #print(f"-- [closeness us: -{info.closeness_to_package()} other: +{info.other_closeness_to_package()}")
 
     # print(f"For {my_robot.position} val {h_val}")
 
@@ -238,54 +244,92 @@ class AgentGreedyImproved(AgentGreedy):
 
 class AgentMinimax(Agent):
     # TODO: section b : 1
+
+
+    def __init__(self):
+        self.best_op = 'park'
+        self.env = None
+
+
     def heuristic(self, env: WarehouseEnv, robot_id: int):
         return smart_heuristic2(env, robot_id)
     
-    def helper(self, env: WarehouseEnv, agent_id, depth, current_id):
+    
+    def helper(self, env: WarehouseEnv, agent_id, depth, current_id, max_depth,time_limit, time_started):
 
-        if (depth==0):
+        if (time.time()-time_started>time_limit):
+            raise TimeoutException
+
+        if (self.heuristic(env,agent_id) ==float('-inf') or self.heuristic(env,agent_id) ==float('inf')):
+            return (self.heuristic(env,agent_id), None)
+        if (depth==max_depth):
             return (self.heuristic(env,agent_id), None)
         operators = env.get_legal_operators(current_id)
+        
         children = [env.clone() for _ in operators]
         options = []
         
         for child, op in zip(children, operators):
             child.apply_operator(current_id, op)
-            child_val = self.helper(child, agent_id, depth-1, not current_id)
+            (child_val, act) = self.helper(child, agent_id, depth+1, not current_id, max_depth,time_limit, time_started)
             options.append((child_val, op))
         
-        if current_id:
-            return min(options, key=lambda x: x[0])
-        else:
+
+
+        if current_id==agent_id:
             return max(options, key=lambda x: x[0])
+        else:
+            return min(options, key=lambda x: x[0])
         
 
-        
+    def helper_aux(self, agent_id, max_depth,time_limit, time_started):
+        (best_value, best_op22)=self.helper(self.env, agent_id, 0, agent_id, max_depth,time_limit, time_started)
+        self.best_op= best_op22
+
+
 
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
-        time_limit=0.95*time_limit
-        time_started = 0
-        depth=3
+
+        time_started = time.time()
+        time_limit=0.9*time_limit
+        self.env = env
+
+        max_depth=2
         forced_parking = False
 
-        (best_value, best_op) = (None, None)
+        (best_value, self.best_op) = (None, 'park')
 
-        while True:
-            if (env.num_steps < depth):
-                forced_parking = True
-                break
-            iteration_started = time.time()
-            (best_value, best_op)=self.helper(env, agent_id, depth, agent_id)
-            if (25*(time.time()-iteration_started)+time_started>=time_limit): # avragely the branching factor is 5 so the time to perform next depth shold be 25 times larger
-                break
-            time_started+=(time.time()-iteration_started)
-            depth+=2
-            
+        try:
+            while True:
+                if (env.num_steps < max_depth):
+                    forced_parking = True
+                    break
+                
+                #thread = Process(target=self.helper_aux, args=(agent_id, depth, agent_id, max_depth,))
+                #thread.start()
+                #thread.join(timeout=time_limit)
+                helper_thread = threading.Thread(target=self.helper_aux, args=(agent_id, max_depth, time_limit, time_started))
+                helper_thread.start()
+                helper_thread.join(timeout=time_limit)
+                max_depth+=2
+                if time_limit<=time_started:
+                    break
+
+        except TimeoutException:
+            pass
+                
+        # not sure why is it None
+        if forced_parking or self.best_op==None:
+            operators = env.get_legal_operators(agent_id)
+            if 'park' in operators:
+                return 'park'
+            else:
+                for i in operators:
+                    if i.startswith('move'):
+                        return i
+
         
-        if forced_parking:
-            return 'park'
-        
-        return best_op
+        return self.best_op
 
 
 class AgentAlphaBeta(Agent):
