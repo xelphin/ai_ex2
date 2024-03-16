@@ -233,13 +233,13 @@ def smart_heuristic2(env: WarehouseEnv, robot_id: int):
 
 class AgentGreedyImproved(AgentGreedy):
     def heuristic(self, env: WarehouseEnv, robot_id: int):
-        return smart_heuristic(env, robot_id)
+        return smart_heuristic2(env, robot_id)
 
 
 class AgentMinimax(Agent):
     # TODO: section b : 1
     def heuristic(self, env: WarehouseEnv, robot_id: int):
-        return smart_heuristic(env, robot_id)
+        return smart_heuristic2(env, robot_id)
     
     def helper(self, env: WarehouseEnv, agent_id, depth, current_id):
 
@@ -254,7 +254,7 @@ class AgentMinimax(Agent):
             child_val = self.helper(child, agent_id, depth-1, not current_id)
             options.append((child_val, op))
         
-        if agent_id:
+        if current_id:
             return min(options, key=lambda x: x[0])
         else:
             return max(options, key=lambda x: x[0])
@@ -263,7 +263,7 @@ class AgentMinimax(Agent):
         
 
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
-
+        time_limit=0.95*time_limit
         time_started = 0
         depth=3
         forced_parking = False
