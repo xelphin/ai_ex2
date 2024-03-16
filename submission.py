@@ -160,6 +160,20 @@ class AgentMinimax(Agent):
     def heuristic(self, env: WarehouseEnv, robot_id: int):
         return smart_heuristic(env, robot_id)
     
+    def greedy(self, agent_id):
+        operators = self.env.get_legal_operators(agent_id)
+        
+        children = [self.env.clone() for _ in operators]
+        options = []
+        
+        for child, op in zip(children, operators):
+            child.apply_operator(agent_id, op)
+            child_val = self.heuristic(self.env, agent_id)
+            options.append((child_val, op))
+        
+        (best_child, best_op) = max(options, key=lambda x: x[0])
+        return best_op
+
     
     def helper(self, env: WarehouseEnv, agent_id, depth, current_id, max_depth,time_limit, time_started):
 
@@ -200,7 +214,7 @@ class AgentMinimax(Agent):
         self.env = env
         max_depth=2
         if env.num_steps < 2: # last move should be greedy
-            self.heuristic(env, agent_id)
+            return self.greedy(agent_id)
 
 
         (best_value, self.best_op) = (None, 'park')
@@ -218,7 +232,7 @@ class AgentMinimax(Agent):
             pass        
         # not sure why is it None
         if self.best_op==None: # sholdnt enter here
-            self.heuristic(env, agent_id)
+            return self.greedy(agent_id)
 
      
         return self.best_op
