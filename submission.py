@@ -240,9 +240,147 @@ class AgentMinimax(Agent):
 
 
 class AgentAlphaBeta(Agent):
-    # TODO: section c : 1
+
+    def __init__(self):
+        self.best_op = 'park'
+        self.env = None
+
+
+    def heuristic(self, env: WarehouseEnv, robot_id: int):
+        return smart_heuristic(env, robot_id)
+    
+    def greedy(self, agent_id):
+        operators = self.env.get_legal_operators(agent_id)
+        
+        children = [self.env.clone() for _ in operators]
+        options = []
+        
+        for child, op in zip(children, operators):
+            child.apply_operator(agent_id, op)
+            child_val = self.heuristic(self.env, agent_id)
+            options.append((child_val, op))
+        
+        (best_child, best_op) = max(options, key=lambda x: x[0])
+        return best_op
+    
+    def sort_by_shallow_heuristic(self, children, operators, current_id, agent_id):
+        # Sort children by shallow heuristic
+        child_op_heuristic = []
+        for child, op in zip(children, operators):
+            child.apply_operator(current_id, op)
+            child_heuristic = self.heuristic(child, agent_id)
+            child_op_heuristic += [(child, op, child_heuristic)]
+        
+        # sort smallest heursitic to highest
+        sorted_child_op_heuristic = sorted(child_op_heuristic, key=lambda x: x[2])
+
+        if (current_id is agent_id):
+            sorted_child_op_heuristic.reverse()
+
+        # Return only (child, op)
+        return [(x[0], x[1]) for x in sorted_child_op_heuristic]
+    
+    def max_value(self, env: WarehouseEnv, agent_id, depth, current_id, max_depth,time_limit, time_started, alpha, beta):
+
+        assert (current_id == agent_id) # TODO: Erase
+
+        if (time.time()-time_started>=time_limit):
+            raise TimeoutException
+        
+        operators = env.get_legal_operators(current_id)
+
+        if (self.heuristic(env,agent_id) == float('-inf') or self.heuristic(env,agent_id) == float('inf')):
+            return (self.heuristic(env,agent_id), operators[0])
+        
+        if (depth == max_depth):
+            return (self.heuristic(env,agent_id), None)
+        
+        
+        children = [env.clone() for _ in operators]
+        sorted_child_op_zip = self.sort_by_shallow_heuristic(children, operators, current_id, agent_id)
+
+        options = []
+        for child, op in sorted_child_op_zip:
+            (child_val, act) = self.min_value(child, agent_id, depth+1, not current_id, max_depth, time_limit, time_started, alpha, beta)
+            options.append((child_val, op))
+
+            # Pruning
+            if child_val >= beta:
+                return (child_val, op)
+            alpha = max(alpha, child_val)
+
+        return max(options, key=lambda x: x[0])
+
+
+    def min_value(self, env: WarehouseEnv, agent_id, depth, current_id, max_depth,time_limit, time_started, alpha, beta):
+
+        assert (current_id != agent_id) # TODO: Erase
+
+        if (time.time()-time_started>=time_limit):
+            raise TimeoutException
+        
+        operators = env.get_legal_operators(current_id)
+
+        if (self.heuristic(env,agent_id) == float('-inf') or self.heuristic(env,agent_id) == float('inf')):
+            return (self.heuristic(env,agent_id), operators[0])
+        
+        if (depth == max_depth):
+            return (self.heuristic(env,agent_id), None)
+        
+        
+        children = [env.clone() for _ in operators]
+        sorted_child_op_zip = self.sort_by_shallow_heuristic(children, operators, current_id, agent_id)
+
+        options = []
+        for child, op in sorted_child_op_zip:
+            (child_val, act) = self.max_value(child, agent_id, depth+1, not current_id, max_depth, time_limit, time_started, alpha, beta)
+            options.append((child_val, op))
+
+            # Pruning
+            if child_val <= alpha:
+                return (child_val, op)
+            beta = min(beta, child_val)
+
+        return min(options, key=lambda x: x[0])
+
+        
+
+    def helper_aux(self, agent_id, max_depth,time_limit, time_started):
+        alpha = float('-inf')
+        beta = float('inf')
+        (best_value, best_op22)=self.max_value(self.env, agent_id, 0, agent_id, max_depth,time_limit, time_started, alpha, beta)
+        self.best_op= best_op22
+
+
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
-        raise NotImplementedError()
+
+        time_started = time.time()
+        time_limit=0.9*time_limit
+        self.env = env
+        max_depth=1
+        if env.num_steps/2 < 2: # last move should be greedy
+            return self.greedy(agent_id)
+
+        operators = env.get_legal_operators(agent_id)
+        (best_value, self.best_op) = (None, operators[0])
+
+        try:
+            while True:
+                if (env.num_steps/2 < max_depth):
+                    break
+                self.helper_aux(agent_id, max_depth, time_limit, time_started)
+                max_depth+=1
+                if time_limit<=time.time()-time_started:
+                    break
+
+        except TimeoutException as e:
+            pass        
+        # not sure why is it None
+        if self.best_op==None: # sholdnt enter here
+            return self.greedy(agent_id)
+
+        # print(f"Reached depth {max_depth}")
+        return self.best_op
 
 
 class AgentExpectimax(Agent):
