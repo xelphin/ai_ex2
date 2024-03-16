@@ -181,7 +181,7 @@ class AgentMinimax(Agent):
             raise TimeoutException
 
         if (self.heuristic(env,agent_id) ==float('-inf') or self.heuristic(env,agent_id) ==float('inf')):
-            return (self.heuristic(env,agent_id), None)
+            return (self.heuristic(env,agent_id), operators[0])
         if (depth==max_depth):
             return (self.heuristic(env,agent_id), None)
         operators = env.get_legal_operators(current_id)
