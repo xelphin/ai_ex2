@@ -308,16 +308,17 @@ class AgentMinimax(Agent):
                 #thread = Process(target=self.helper_aux, args=(agent_id, depth, agent_id, max_depth,))
                 #thread.start()
                 #thread.join(timeout=time_limit)
-                helper_thread = threading.Thread(target=self.helper_aux, args=(agent_id, max_depth, time_limit, time_started))
-                helper_thread.start()
-                helper_thread.join(timeout=time_limit)
+                #helper_thread = threading.Thread(target=self.helper_aux, args=(agent_id, max_depth, time_limit, time_started))
+                #helper_thread.start()
+                #helper_thread.join(timeout=time_limit)
+                self.helper_aux(agent_id, max_depth, time_limit, time_started)
+
                 max_depth+=2
                 if time_limit<=time.time()-time_started:
                     break
 
         except TimeoutException as e:
-            pass
-        print(max_depth)        
+            pass        
         # not sure why is it None
         if forced_parking or self.best_op==None:
             operators = env.get_legal_operators(agent_id)
