@@ -7,8 +7,6 @@ import threading
 #import signal
 from multiprocessing import Process
 
-# TODO: section a : 3
-
 
 class TimeoutException(Exception):
     pass
@@ -149,8 +147,6 @@ class AgentGreedyImproved(AgentGreedy):
 
 
 class AgentMinimax(Agent):
-    # TODO: section b : 1
-
 
     def __init__(self):
         self.best_op = 'park'
@@ -282,8 +278,6 @@ class AgentAlphaBeta(Agent):
     
     def max_value(self, env: WarehouseEnv, agent_id, depth, current_id, max_depth,time_limit, time_started, alpha, beta):
 
-        assert (current_id == agent_id) # TODO: Erase
-
         if (time.time()-time_started>=time_limit):
             raise TimeoutException
         
@@ -313,8 +307,6 @@ class AgentAlphaBeta(Agent):
 
 
     def min_value(self, env: WarehouseEnv, agent_id, depth, current_id, max_depth,time_limit, time_started, alpha, beta):
-
-        assert (current_id != agent_id) # TODO: Erase
 
         if (time.time()-time_started>=time_limit):
             raise TimeoutException
