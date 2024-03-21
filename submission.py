@@ -214,7 +214,7 @@ class AgentMinimax(Agent):
         time_limit=0.9*time_limit
         self.env = env
         max_depth=1
-        if env.num_steps/2 < 2: # last move should be greedy
+        if env.num_steps< 2: # last move should be greedy
             return self.greedy(agent_id)
 
         operators = env.get_legal_operators(agent_id)
@@ -222,7 +222,7 @@ class AgentMinimax(Agent):
 
         try:
             while True:
-                if (env.num_steps/2 < max_depth):
+                if (env.num_steps < max_depth):
                     break
                 self.helper_aux(agent_id, max_depth, time_limit, time_started)
                 max_depth+=1
@@ -358,7 +358,7 @@ class AgentAlphaBeta(Agent):
         time_limit=0.9*time_limit
         self.env = env
         max_depth=1
-        if env.num_steps/2 < 2: # last move should be greedy
+        if env.num_steps < 2: # last move should be greedy
             return self.greedy(agent_id)
 
         operators = env.get_legal_operators(agent_id)
@@ -366,7 +366,7 @@ class AgentAlphaBeta(Agent):
 
         try:
             while True:
-                if (env.num_steps/2 < max_depth):
+                if (env.num_steps < max_depth):
                     break
                 self.helper_aux(agent_id, max_depth, time_limit, time_started)
                 max_depth+=1
@@ -384,9 +384,128 @@ class AgentAlphaBeta(Agent):
 
 
 class AgentExpectimax(Agent):
-    # TODO: section d : 1
+    def __init__(self):
+        self.best_op = 'park'
+        self.env = None
+        self.agent_id = -1
+
+    def heuristic(self, env: WarehouseEnv, robot_id: int):
+        return smart_heuristic(env, robot_id)
+    
+    def greedy(self):
+        operators = self.env.get_legal_operators(self.agent_id)
+        
+        children = [self.env.clone() for _ in operators]
+        options = []
+        
+        for child, op in zip(children, operators):
+            child.apply_operator(self.agent_id, op)
+            child_val = self.heuristic(self.env, self.agent_id)
+            options.append((child_val, op))
+        
+        (best_child, best_op) = max(options, key=lambda x: x[0])
+        return best_op
+    
+    def operator_probability(self, operators):
+
+        operator_probability_arr = [] # [(operator, probability)]
+
+        denom = len(operators) + (int('move east' in operators)) + (int('pick up' in operators))
+
+        for op in operators:
+            if op == 'move east' or op == 'pick up':
+                operator_probability_arr += [(op, (2/denom))]
+            else:
+                operator_probability_arr += [(op, (1/denom))]
+
+        return operator_probability_arr
+    
+    def max_value(self, env: WarehouseEnv, depth, current_id, max_depth,time_limit, time_started):
+
+        if (time.time()-time_started>=time_limit):
+            raise TimeoutException
+        
+        operators = env.get_legal_operators(current_id)
+
+        if (self.heuristic(env,self.agent_id) == float('-inf') or self.heuristic(env,self.agent_id) == float('inf')):
+            return (self.heuristic(env,self.agent_id), operators[0])
+        
+        if (depth == max_depth):
+            return (self.heuristic(env,self.agent_id), None)
+        
+        
+        children = [env.clone() for _ in operators]
+        sorted_child_op_zip = zip(children, operators)
+
+        options = []
+        for child, op in sorted_child_op_zip:
+            child.apply_operator(current_id, op)
+            (child_val, act) = self.exp_value(child, depth+1, not current_id, max_depth, time_limit, time_started)
+            options.append((child_val, op))
+
+        return max(options, key=lambda x: x[0])
+    
+
+    def exp_value(self, env: WarehouseEnv, depth, current_id, max_depth,time_limit, time_started):
+
+        if (time.time()-time_started>=time_limit):
+            raise TimeoutException
+        
+        operators = env.get_legal_operators(current_id)
+        operator_probability_arr = self.operator_probability(operators)
+
+        if (self.heuristic(env,self.agent_id) == float('-inf') or self.heuristic(env,self.agent_id) == float('inf')):
+            return (self.heuristic(env,self.agent_id), operators[0])
+        
+        if (depth == max_depth):
+            return (self.heuristic(env,self.agent_id), None)
+        
+        children = [env.clone() for _ in operators]
+
+        v = 0
+        for child, (op, prob) in zip(children, operator_probability_arr):
+            child.apply_operator(current_id, op)
+            (child_val, act) = self.max_value(child, depth+1, not current_id, max_depth, time_limit, time_started)
+            v += prob*child_val
+
+        return (v, None)
+
+        
+
+    def helper_aux(self, max_depth,time_limit, time_started):
+        (best_value, best_op22)=self.max_value(self.env, 0, self.agent_id, max_depth,time_limit, time_started)
+        self.best_op= best_op22
+
+
     def run_step(self, env: WarehouseEnv, agent_id, time_limit):
-        raise NotImplementedError()
+        self.agent_id = agent_id
+        time_started = time.time()
+        time_limit=0.9*time_limit
+        self.env = env
+        max_depth=1
+        if env.num_steps/2 < 2: # last move should be greedy
+            return self.greedy()
+
+        operators = env.get_legal_operators(self.agent_id)
+        (best_value, self.best_op) = (None, operators[0])
+
+        try:
+            while True:
+                if (env.num_steps/2 < max_depth):
+                    break
+                self.helper_aux(max_depth, time_limit, time_started)
+                max_depth+=1
+                if time_limit<=time.time()-time_started:
+                    break
+
+        except TimeoutException as e:
+            pass        
+        # not sure why is it None
+        if self.best_op==None: # sholdnt enter here
+            return self.greedy()
+
+        # print(f"Reached depth {max_depth}")
+        return self.best_op
 
 
 # here you can check specific paths to get to know the environment
@@ -394,8 +513,9 @@ class AgentHardCoded(Agent):
     def __init__(self):
         self.step = 0
         # specifiy the path you want to check - if a move is illegal - the agent will choose a random move
-        self.trajectory = ["move north", "move east", "move north", "move north", "pick_up", "move east", "move east",
-                           "move south", "move south", "move south", "move south", "drop_off"]
+        self.trajectory = ["move east", "move east", "pick_up", "pick_up", "pick_up", "move east", "move east",
+                           "move east", "move east", "move east", "pick_up", "move east",
+                           "pick_up","move east", "pick_up", "pick_up", "pick_up", "pick_up" , "move east"]
 
     def run_step(self, env: WarehouseEnv, robot_id, time_limit):
         if self.step == len(self.trajectory):
