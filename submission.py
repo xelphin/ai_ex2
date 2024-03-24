@@ -126,6 +126,39 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
         return float('-inf')
     
     # print(f"For {my_robot.position}:")
+
+    opponent_weight = 0.1
+    
+    h_val += 100*(my_robot.credit-opponent_weight*other_robot.credit)
+    #print(f"-- [credits +{100*(my_robot.credit-other_robot.credit)}]")
+    h_val += 50*(my_robot.battery-opponent_weight*other_robot.battery)
+    #print(f"-- [battery +{50*(my_robot.battery-other_robot.battery)}]")
+    h_val += 25*(int(info.robot_has_package()) - opponent_weight*int(info.other_robot_has_package())) # -1 <= val <= 1
+    #print(f"-- [has package +{100*(int(info.robot_has_package()) - int(info.other_robot_has_package()))}]")
+    h_val += -info.closeness_to_package() + opponent_weight*info.other_closeness_to_package()
+    #print(f"-- [closeness us: -{info.closeness_to_package()} other: +{info.other_closeness_to_package()}")
+
+    # print(f"For {my_robot.position} val {h_val}")
+
+    return h_val
+
+
+def smart_heuristic2(env: WarehouseEnv, robot_id: int):
+
+    info = Heuristic_Info(env, robot_id)
+    h_val = 0
+    my_robot = env.get_robot(robot_id)
+    other_robot = env.get_robot(not robot_id)
+
+    # Other robot is dead and we have more points
+    if info.win_while_ahead():
+        return float('inf') # will pick North/South/East/West
+    
+    # We are dead and other robot has more points
+    if info.has_lost():
+        return float('-inf')
+    
+    # print(f"For {my_robot.position}:")
     
     h_val += 100*(my_robot.credit-other_robot.credit)
     #print(f"-- [credits +{100*(my_robot.credit-other_robot.credit)}]")
@@ -139,6 +172,7 @@ def smart_heuristic(env: WarehouseEnv, robot_id: int):
     # print(f"For {my_robot.position} val {h_val}")
 
     return h_val
+
 
 
 class AgentGreedyImproved(AgentGreedy):
@@ -185,16 +219,17 @@ class AgentMinimax(Agent):
         
         children = [env.clone() for _ in operators]
         options = []
-        
+      
         for child, op in zip(children, operators):
             child.apply_operator(current_id, op)
             (child_val, act) = self.helper(child, agent_id, depth+1, not current_id, max_depth,time_limit, time_started)
             options.append((child_val, op))
-        
+
 
 
         if current_id==agent_id:
             return max(options, key=lambda x: x[0])
+        
         else:
             return min(options, key=lambda x: x[0])
         
